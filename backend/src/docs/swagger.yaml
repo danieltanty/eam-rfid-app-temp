@@ -1,0 +1,933 @@
+openapi: 3.0.0
+info:
+  title: EAM Backend API
+  version: 1.0.0
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /api/auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              example:
+                username: "MYZURAIDAHM"
+                password: "System8188!"
+      responses:
+        200:
+          description: Success
+        401:
+          description: Unauthorized
+
+  /api/auth/log-login:
+    post:
+      tags:
+        - Auth
+      summary: Log user login event
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - loginStatus
+              properties:
+                username:
+                  type: string
+                  example: TEST
+                deviceName:
+                  type: string
+                  example: TC22
+                deviceIp:
+                  type: string
+                  example: 10.0.0.1
+                loginStatus:
+                  type: string
+                  example: SUCCESS
+
+      responses:
+        200:
+          description: Login log saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      message:
+                        type: string
+        400:
+          description: Bad request
+
+  /api/work-order:
+    post:
+      tags:
+        - Work Order
+      summary: Get Work Orders
+      description: Retrieve work orders with optional filters (status, org, location, date range, work order code)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workOrderId:
+                  type: string
+                  example: "30117"
+                org:
+                  type: string
+                  example: "TSUSHO1"
+                location:
+                  type: string
+                  example: "S686"
+                fromDate:
+                  type: string
+                  description: Start date
+                  example: "10-APR-2026"
+                toDate:
+                  type: string
+                  description: End date
+                  example: "31-MAY-2026"
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        workOrderCode:
+                          type: string
+                          example: "30085"
+                        description:
+                          type: string
+                          example: "Asset Check 1"
+                        location:
+                          type: string
+                          example: "S686"
+                        organization:
+                          type: string
+                          example: "TSUSHO1"
+                        objectOrganization:
+                          type: string
+                          example: "TSUSHO"
+                        pmCode:
+                          type: string
+                          example: "ASSET_CHECK_01"
+                        status:
+                          type: string
+                          example: "OPEN"
+                        startDate:
+                          type: string
+                          example: "01-MAY-2026 00:00"
+                        endDate:
+                          type: string
+                          example: "01-MAY-2026 00:00"
+
+        400:
+          description: Bad Request
+
+  /api/asset:
+    get:
+      tags:
+        - Asset
+      summary: Get asset details
+      description: Retrieve asset information from HxGN EAM
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetCode
+          in: query
+          required: true
+          schema:
+            type: string
+
+        - name: orgCode
+          in: query
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Asset retrieved successfully
+
+        400:
+          description: Bad Request
+
+  /api/asset/profile-picture:
+    get:
+      tags:
+        - Asset
+      summary: Get asset profile picture by document code
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: documentCode
+          in: query
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Profile picture retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      imageUrl:
+                        type: string
+                        example: "data:image/jpeg;base64,/9j/..."
+                      mimeType:
+                        type: string
+                        example: "image/jpeg"
+
+        400:
+          description: Bad Request
+
+  /api/asset/details:
+    get:
+      tags:
+        - Asset
+      summary: Get asset with profile picture
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetCode
+          in: query
+          required: true
+          schema:
+            type: string
+
+        - name: orgCode
+          in: query
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Asset retrieved successfully
+
+        400:
+          description: Bad Request
+
+  /api/asset/search:
+    get:
+      summary: Search assets with multiple filters
+      tags:
+        - Asset
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: zone
+          schema:
+            type: string
+
+        - in: query
+          name: orgCode
+          schema:
+            type: string
+
+        - in: query
+          name: assetCode
+          schema:
+            type: string
+
+        - in: query
+          name: rfidCode
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              example:
+                value:
+                  success: true
+                  data:
+                    - assetCode: "FF25228/HQ-1"
+                      description: "Foldable table"
+                      organization: "TSUSHO"
+                      organizationDescription: "Toyota Tsusho"
+                      status: "I"
+                      class: "Furniture & fittings"
+                      zone: "CAMRY"
+                      commissionDate: "07-NOV-2025 00:00"
+                      document: ""
+
+        400:
+          description: Bad request
+
+  /api/asset/rfid/scan:
+    post:
+      summary: Get assets by RFID Codes
+      tags:
+        - Asset
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rfidCodes
+              properties:
+                rfidCodes:
+                  type: array
+                  items:
+                    type: string
+                  example: ["E280116060000206126D6D20", "3014F41460000040000022F0"]
+                  description: List of RFID codes to scan
+
+                org:
+                  type: string
+                  example: "TSUSHO"
+                  description: Optional organization filter (applied after fetch)
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetCode:
+                          type: string
+                          example: "A1001"
+                        description:
+                          type: string
+                          example: "Pump Motor"
+                        organization:
+                          type: string
+                          example: "ORG1"
+                        organizationDescription:
+                          type: string
+                          example: "Main Plant"
+                        location:
+                          type: string
+                          example: "ZONE-A"
+                        department:
+                          type: string
+                          example: "Maintenance"
+                        status:
+                          type: string
+                          example: "Installed"
+                        zone:
+                          type: string
+                          example: "Z1"
+                        commissionDate:
+                          type: string
+                          example: "2024-01-01T00:00:00Z"
+                        profilePicture:
+                          type: string
+                          example: "DOC123"
+                        rfidCode:
+                          type: string
+                          example: "RF001"
+                  message:
+                    type: string
+                    example: ""
+
+        400:
+          description: Bad Request
+
+  /api/asset/zone/{zone}:
+    get:
+      summary: Get assets by zone
+      tags:
+        - Asset
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: zone
+          required: true
+          schema:
+            type: string
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              example:
+                value:
+                  success: true
+                  data:
+                    - assetCode: "FF25228/HQ-1"
+                      description: "Foldable table"
+                      zone: "PANTRY"
+
+        400:
+          description: Bad request
+
+  /api/work-order/scan:
+    post:
+      tags:
+        - Work Order
+      summary: Create work order scan record
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - workOrderId
+                - status
+              properties:
+                workOrderId:
+                  type: string
+                  example: "30117"
+                status:
+                  type: string
+                  example: "Released"
+                deviceName:
+                  type: string
+                  example: "TC22"
+                deviceIp:
+                  type: string
+                  example: "127.0.0.1"
+                remark:
+                  type: string
+                  example: ""
+                initiatedBy:
+                  type: string
+                  example: "user"
+
+      responses:
+        200:
+          description: Scan record created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: "The record was successfully saved."
+                      record:
+                        type: object
+                        properties:
+                          USERDEFINEDSCREENNAME:
+                            type: string
+                            example: "UUWOSC"
+
+        400:
+          description: Bad Request
+
+  /api/work-order/status:
+    patch:
+      tags:
+        - Work Order
+      summary: Update work order status in HxGN system
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: workOrderId
+          required: true
+          schema:
+            type: string
+
+        - in: query
+          name: orgCode
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  example: "C"
+
+      responses:
+        200:
+          description: Work order updated successfully
+
+        400:
+          description: Bad Request
+
+  /api/work-order-scan/work-order/{workOrderId}/zone/{zone}/save-result:
+    post:
+      tags:
+        - Work Order Scan
+      summary: Save work order scan result
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: workOrderId
+          required: true
+          schema:
+            type: string
+
+        - in: path
+          name: zone
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assets:
+                  type: array
+                  description: Batch scan payload (recommended)
+                  items:
+                    type: object
+                    properties:
+                      assetCode:
+                        type: string
+                      assetStatus:
+                        type: string
+                      scanSeq:
+                        type: integer
+              example:
+                initiatedBy: "user"
+                assets:
+                  - assetCode: "FF25001/HQ"
+                    assetStatus: "MATCHED"
+                    scanSeq: 1
+                    rfidCode: "3014F4146000004000003DA0"
+                    remark: ""
+                  - assetCode: "FF25003/HQ"
+                    assetStatus: "MISSING"
+                    scanSeq: 2
+                    rfidCode: "E280699500004006D0A2DE5B"
+                    remark: ""
+
+      responses:
+        200:
+          description: Work Order Scan result update successfully
+        400:
+          description: Bad Request
+
+  /api/work-order/{id}:
+    get:
+      tags:
+        - Work Order
+      summary: Get work order by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Work order retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 30117
+                      description:
+                        type: string
+                        example: Preventive Maintenance WO
+                      zone:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: PANTRY
+                            status:
+                              type: string
+                              example: PENDING
+                      pm:
+                        type: string
+                        example: PM-001
+                      startDate:
+                        type: string
+                        format: date-time
+                        example: 2026-05-08T00:00:00.000Z
+                      endDate:
+                        type: string
+                        format: date-time
+                        example: 2026-05-09T00:00:00.000Z
+                      organization:
+                        type: string
+                        example: TSUSHO
+                      objectOrganization:
+                        type: string
+                        example: TSUSHO
+                      status:
+                        type: string
+                        example: Released
+                  message:
+                    type: string
+                    example: ""
+
+        400:
+          description: Bad Request
+
+  /api/work-order-scan/assets:
+    get:
+      summary: Get scanned assets by work order ID
+      tags:
+        - Work Order Scan
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: workOrderId
+          required: true
+          schema:
+            type: string
+
+        - in: query
+          name: scanSeq
+          required: false
+          schema:
+            type: integer
+
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetCode:
+                          type: string
+                          example: "FF25001/HQ"
+                        description:
+                          type: string
+                          example: "PANASONIC MWO NN-ST34NBMPQ"
+                        organization:
+                          type: string
+                          example: "Toyota Tsusho"
+                        organizationCode:
+                          type: string
+                          example: "TSUSHO"
+                        location:
+                          type: string
+                          example: "Head Office"
+                        department:
+                          type: string
+                          example: "GAD"
+                        zone:
+                          type: string
+                          example: "Pantry Area"
+                        zoneCode:
+                          type: string
+                          example: "PANTRY"
+                        currentZoneCode:
+                          type: string
+                          example: "PANTRY"
+                        status:
+                          type: string
+                          example: "I"
+                        scanStatus:
+                          type: string
+                          example: "MATCHED"
+                        scanSeq:
+                          type: integer
+                          example: 1
+                        rfidCode:
+                          type: string
+                          example: "E280116060000206126D6D20"
+                        reason:
+                          type: string
+                          example: ""
+                        commissionDate:
+                          type: string
+                          example: "26-SEP-2025 00:00"
+                        profilePicture:
+                          type: string
+                          example: "FF25001/HQ_PP1"
+                        workOrderId:
+                          type: string
+                          example: "30085"
+                        workOrderScanUuid:
+                          type: string
+                          example: "ADC50696-2E93-4333-AFEA-B55D1DD1586A"
+                  message:
+                    type: string
+                    example: ""
+        400:
+          description: Bad request
+
+  /api/asset/metadata:
+    get:
+      tags:
+        - Asset
+      summary: Get location and zone metadata
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        location:
+                          type: string
+                          example: "Warehouse A"
+                        primarySystem:
+                          type: string
+                          example: "Electrical"
+                        id:
+                          type: string
+                          example: "12345"
+                  message:
+                    type: string
+                    example: ""
+        400:
+          description: Bad Request
+
+  /api/asset/rfid:
+    patch:
+      tags:
+        - Asset
+      summary: Update Asset RFID Code
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: assetCode
+          required: true
+          schema:
+            type: string
+
+        - in: query
+          name: orgCode
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - location
+                - zone
+                - rfidCode
+              properties:
+                location:
+                  type: string
+                  example: S686
+
+                zone:
+                  type: string
+                  example: PANTRY
+
+                rfidCode:
+                  type: string
+                  example: E280116060000206126D6D20
+
+      responses:
+        200:
+          description: Asset updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Asset updated
+                  data:
+                    type: object
+                    properties:
+                      rfidCode:
+                        type: string
+                        example: RFID-2
+        400:
+          description: Bad Request
+
+  /api/health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Returns API server health status and uptime.
+      responses:
+        200:
+          description: Health check success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: OK
+                      uptime:
+                        type: number
+                        example: 1234.56
+                  message:
+                    type: string
+                    example: ""
+
+  /api/health/eam:
+    get:
+      tags:
+        - System
+      summary: Check HxGN EAM connectivity
+      description: Verifies that the backend can connect to the HxGN EAM API.
+      responses:
+        200:
+          description: HxGN EAM reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: UP
+                      eam:
+                        type: object
+                        properties:
+                          reachable:
+                            type: boolean
+                            example: true
+                          statusCode:
+                            type: integer
+                            example: 200
+                          responseTimeMs:
+                            type: integer
+                            example: 145
+                  message:
+                    type: string
+                    example: ""
+
+        "503":
+          description: HxGN EAM unavailable

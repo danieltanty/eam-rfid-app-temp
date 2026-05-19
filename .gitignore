@@ -1,0 +1,14 @@
+node_modules
+deploy
+backup
+release
+EAM RFID App Setup
+
+logs
+*.log
+*audit.json
+npm-debug.log*
+*.gz
+
+dist
+*.local

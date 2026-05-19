@@ -1,0 +1,6 @@
+export const ASSET_SCAN_STATUS = {
+  MATCHED: "MATCHED",
+  MISSING: "MISSING",
+  NEW: "NEW",
+  FOUND: "FOUND"
+};

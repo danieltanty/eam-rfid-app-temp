@@ -28,8 +28,8 @@ paths:
                 password:
                   type: string
               example:
-                username: "MYZURAIDAHM"
-                password: "System8188!"
+                username: ""
+                password: ""
       responses:
         200:
           description: Success

@@ -1,6 +1,7 @@
 import { executeGrid, createFilter, mapGridRecords } from "./grid.service.js";
 import { HXGN_STATUS } from "../constants/hxgnStatus.js"
 import { parseHxgnDateTime } from "../utils/date.util.js";
+import logger from "../config/logger.js";
 import { eamClient } from "../lib/axios.js";
 import { eamRequest } from "../lib/eamRequest.js";
 import { safeRequest } from "../utils/httpClient.js";
@@ -15,13 +16,30 @@ export function transformWorkOrders(records) {
     const id = fields.wo_code;
 
     if (!grouped[id]) {
+      let startDate = null;
+      let endDate = null;
+
+      try {
+        startDate = parseHxgnDateTime(fields.wo_start_date);
+      } catch (err) {
+        logger.warn(`Failed to parse wo_start_date for WO ${id}: ${err?.message || err} — returning raw value`);
+        startDate = fields.wo_start_date;
+      }
+
+      try {
+        endDate = parseHxgnDateTime(fields.wo_end_date);
+      } catch (err) {
+        logger.warn(`Failed to parse wo_end_date for WO ${id}: ${err?.message || err} — returning raw value`);
+        endDate = fields.wo_end_date;
+      }
+
       grouped[id] = {
         id,
         description: fields.wo_desc,
         zone: [],
         pm: fields.wo_pm_code,
-        startDate: parseHxgnDateTime(fields.wo_start_date),
-        endDate: parseHxgnDateTime(fields.wo_end_date),
+        startDate,
+        endDate,
         organization: fields.wo_org,
         objectOrganization: fields.wo_obj_org,
         status: HXGN_STATUS[fields.wo_status] || fields.wo_status
@@ -112,26 +130,31 @@ export async function getWorkOrderByIdService(
   { workOrderId },
   context
 ) {
-  const filters = [
-    createFilter({
-      alias: "WO_CODE",
-      value: workOrderId
-    })
-  ];
+  try {
+    const filters = [
+      createFilter({
+        alias: "WO_CODE",
+        value: workOrderId
+      })
+    ];
 
-  const raw = await executeGrid({
-    gridId: ENV.WO_DETAILS_GRID_ID,
-    gridName: ENV.WO_DETAILS_GRID_NAME,
-    userFunctionName: ENV.WO_DETAILS_GRID_NAME,
-    filters,
-    rowLimit: 100
-  }, context);
+    const raw = await executeGrid({
+      gridId: ENV.WO_DETAILS_GRID_ID,
+      gridName: ENV.WO_DETAILS_GRID_NAME,
+      userFunctionName: ENV.WO_DETAILS_GRID_NAME,
+      filters,
+      rowLimit: 100
+    }, context);
 
-  const mapped = mapGridRecords(raw);
+    const mapped = mapGridRecords(raw);
 
-  const transformed = transformWorkOrders(mapped);
+    const transformed = transformWorkOrders(mapped);
 
-  return transformed[0] || null;
+    return transformed[0] || null;
+  } catch (err) {
+    logger.error(`getWorkOrderByIdService failed for ${workOrderId}: ${err?.message || err}`);
+    throw err;
+  }
 }
 
 export async function addWorkOrderScanService(payload, context) {

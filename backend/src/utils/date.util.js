@@ -9,31 +9,77 @@ export function isExpired(dateStr) {
 }
 
 export function parseHxgnDateTime(dateStr) {
-  if (!dateStr) return null;
-
-  const [datePart, timePart] = dateStr.split(" ");
-  const [day, monStr, year] = datePart.split("-");
-  const [hour = "00", minute = "00"] = (timePart || "").split(":");
-
-  const months = {
-    JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
-    JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12
-  };
+  if (!dateStr || typeof dateStr !== "string") {
+    return null;
+  }
 
   const zone = getServerTimeZone();
 
-  const dt = DateTime.fromObject(
-    {
-      year: Number(year),
-      month: months[monStr.toUpperCase()],
-      day: Number(day),
-      hour: Number(hour),
-      minute: Number(minute)
-    },
-    { zone }
-  );
+  const formats = [
+    // Classic
+    "dd-MMM-yyyy",
+    "dd-MMM-yyyy HH:mm",
+    "dd-MMM-yyyy HH:mm:ss",
 
-  return dt.toUTC().toISO();
+    // Slash formats
+    "dd/MM/yyyy",
+    "dd/MM/yyyy HH:mm",
+    "dd/MM/yyyy HH:mm:ss",
+
+    // Dash formats
+    "dd-MM-yyyy",
+    "dd-MM-yyyy HH:mm",
+    "dd-MM-yyyy HH:mm:ss",
+
+    // ISO-like formats
+    "yyyy-MM-dd",
+    "yyyy-MM-dd HH:mm",
+    "yyyy-MM-dd HH:mm:ss",
+
+    // US formats (optional)
+    "MM/dd/yyyy",
+    "MM/dd/yyyy HH:mm",
+    "MM/dd/yyyy HH:mm:ss",
+  ];
+
+  // Try all known formats
+  for (const format of formats) {
+    const dt = DateTime.fromFormat(dateStr.trim(), format, {
+      zone,
+      locale: "en",
+    });
+
+    if (dt.isValid) {
+      return dt.toUTC().toISO();
+    }
+  }
+
+  // Try ISO parsing
+  let dt = DateTime.fromISO(dateStr, { zone });
+
+  if (dt.isValid) {
+    return dt.toUTC().toISO();
+  }
+
+  // Try RFC parsing
+  dt = DateTime.fromRFC2822(dateStr, { zone });
+
+  if (dt.isValid) {
+    return dt.toUTC().toISO();
+  }
+
+  // Final fallback using JS Date
+  const jsDate = new Date(dateStr);
+
+  if (!isNaN(jsDate.getTime())) {
+    return DateTime.fromJSDate(jsDate, { zone })
+      .toUTC()
+      .toISO();
+  }
+
+  console.error("Unsupported date format:", dateStr);
+
+  return null;
 }
 
 export function getServerTimeZone() {

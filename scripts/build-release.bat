@@ -165,6 +165,12 @@ if exist "%NSSM_EXE%" (
 
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to download NSSM.
+        echo.
+        echo ------------------------------------------
+        echo.
+        echo PLEASE DOWNLOAD THE NSSM.exe MANUALLY !
+        echo.
+        echo ------------------------------------------
         pause
         exit /b 1
     )

@@ -8,17 +8,20 @@ echo.
 
 set SERVICE_NAME=EAM RFID App Service
 set NODE_PATH=C:\Program Files\nodejs\node.exe
-set NSSM=%~dp0nssm.exe
-set ZIP_FILE=%~dp0eam-rfid-app.zip
 
 set BASE_DIR=C:\apps
 set APP_DIR=%BASE_DIR%\eam-rfid-app
 set APP_PATH=%APP_DIR%\src\server.js
 set LOG_DIR=%APP_DIR%\logs
 
+set NSSM_SOURCE=%~dp0nssm.exe
+set NSSM_DEST=%APP_DIR%\nssm.exe
+
+set ZIP_FILE=%~dp0eam-rfid-app.zip
+
 echo Checking required files...
 
-if not exist "%NSSM%" (
+if not exist "%NSSM_SOURCE%" (
     echo [ERROR] nssm.exe not found.
     pause
     exit /b 1
@@ -29,7 +32,6 @@ if not exist "%ZIP_FILE%" (
     pause
     exit /b 1
 )
-
 
 set NODE_MSI=
 
@@ -69,7 +71,6 @@ echo.
 echo Initializing application directory...
 
 if not exist "%BASE_DIR%" (
-    echo Creating %BASE_DIR% ...
     mkdir "%BASE_DIR%"
 )
 
@@ -81,13 +82,23 @@ if not exist "%LOG_DIR%" (
     mkdir "%LOG_DIR%"
 )
 
-for /d %%D in ("%APP_DIR%\*") do (
-    if /i not "%%~nxD"=="logs" rmdir /s /q "%%D"
+echo.
+echo Checking existing service...
+
+if exist "%NSSM_DEST%" (
+    sc query "%SERVICE_NAME%" >nul 2>&1
+
+    if !errorlevel! == 0 (
+        echo Service exists. Stopping...
+        "%NSSM_DEST%" stop "%SERVICE_NAME%" >nul 2>&1
+        timeout /t 3 /nobreak >nul
+        echo Removing existing service...
+        "%NSSM_DEST%" remove "%SERVICE_NAME%" confirm >nul 2>&1
+        timeout /t 3 /nobreak >nul
+        echo Existing service removed.
+    )
 )
 
-del /q "%APP_DIR%\*" 2>nul
-
-echo Application directory initialized.
 echo.
 echo Extracting application...
 
@@ -102,7 +113,38 @@ if exist "%APP_DIR%\.env" (
     )
 
     copy /Y "%APP_DIR%\.env" "%TEMP_BACKUP_DIR%" >nul
+    echo .env backed up successfully.
 )
+
+echo.
+echo Cleaning application directory...
+
+for /d %%D in ("%APP_DIR%\*") do (
+    if /i not "%%~nxD"=="logs" (
+        rmdir /s /q "%%D"
+    )
+)
+
+for %%F in ("%APP_DIR%\*") do (
+    del /q "%%F" 2>nul
+)
+
+echo Application directory cleaned.
+echo.
+
+echo Copying NSSM to application directory...
+copy /Y "%NSSM_SOURCE%" "%NSSM_DEST%" >nul
+
+if not exist "%NSSM_DEST%" (
+    echo [ERROR] Failed to copy NSSM.
+    pause
+    exit /b 1
+)
+
+echo NSSM copied successfully.
+echo.
+
+echo Extracting application...
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%BASE_DIR%' -Force"
@@ -113,41 +155,37 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+echo App extraction completed.
+
 if exist "%ENV_BACKUP%" (
     echo Restoring existing .env...
-    copy /Y "%ENV_BACKUP%" "%APP_DIR%" >nul
+
+    copy /Y "%ENV_BACKUP%" "%APP_DIR%\.env" >nul
 
     del /q "%ENV_BACKUP%" >nul 2>&1
     rmdir "%TEMP_BACKUP_DIR%" >nul 2>&1
+
+    echo .env restored successfully.
 )
 
-echo Extraction completed.
-echo.
-
-sc query "%SERVICE_NAME%" >nul 2>&1
-if %errorlevel% == 0 (
-    echo "%SERVICE_NAME%" already exists. Stopping and removing...
-    "%NSSM%" stop "%SERVICE_NAME%" >nul 2>&1
-    echo Existing service stopped.
-    "%NSSM%" remove "%SERVICE_NAME%" confirm
-    echo Existing service removed.
-)
 echo.
 echo Installing %SERVICE_NAME%...
 
-"%NSSM%" install "%SERVICE_NAME%" "%NODE_PATH%" "%APP_PATH%"
+"%NSSM_DEST%" install "%SERVICE_NAME%" "%NODE_PATH%" "%APP_PATH%"
 
-"%NSSM%" set "%SERVICE_NAME%" AppDirectory "%APP_DIR%"
-"%NSSM%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
-"%NSSM%" set "%SERVICE_NAME%" AppExit Default Restart
-"%NSSM%" set "%SERVICE_NAME%" AppRestartDelay 5000
+"%NSSM_DEST%" set "%SERVICE_NAME%" AppDirectory "%APP_DIR%"
+"%NSSM_DEST%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
+"%NSSM_DEST%" set "%SERVICE_NAME%" AppExit Default Restart
+"%NSSM_DEST%" set "%SERVICE_NAME%" AppRestartDelay 5000
 
 sc failure "%SERVICE_NAME%" reset= 0 actions= restart/5000/restart/5000/restart/5000
 
 echo Service installed successfully.
+echo.
+
 echo Starting service...
 
-"%NSSM%" start "%SERVICE_NAME%"
+"%NSSM_DEST%" start "%SERVICE_NAME%"
 
 echo.
 echo ==========================================

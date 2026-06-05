@@ -66,25 +66,44 @@ if exist "%NODE_PATH%" (
         exit /b 1
     )
 )
-
 echo.
-echo Initializing application directory...
 
-if not exist "%BASE_DIR%" (
-    mkdir "%BASE_DIR%"
+:: --- [STEP 4: Prepare Application Directory] ---
+echo [4/8] Initializing application directory...
+
+if not exist "%FILE_BASE_DIR%" (
+    echo Creating %FILE_BASE_DIR%...
+    mkdir "%FILE_BASE_DIR%"
 )
+echo %FILE_BASE_DIR% is ready.
+echo.
+
+if not exist "%APP_BASE_DIR%" (
+    echo Creating %APP_BASE_DIR%...
+    mkdir "%APP_BASE_DIR%"
+)
+echo %APP_BASE_DIR% is ready.
+echo.
 
 if not exist "%APP_DIR%" (
+    echo Creating %APP_DIR%...
     mkdir "%APP_DIR%"
 )
+echo %APP_DIR% is ready.
+echo.
 
 if not exist "%LOG_DIR%" (
+    echo Creating %LOG_DIR%...
     mkdir "%LOG_DIR%"
 )
-
+echo %LOG_DIR% is ready.
 echo.
-echo Checking existing service...
 
+echo Application directory initialized.
+echo.
+
+:: --- [STEP 5: Check for Existing Service and Stop if Exists] ---
+echo [5/8] Checking for existing service and stopping if exists...
 if exist "%NSSM_DEST%" (
     sc query "%SERVICE_NAME%" >nul 2>&1
 
@@ -98,17 +117,16 @@ if exist "%NSSM_DEST%" (
         echo Existing service removed.
     )
 )
-
 echo.
-echo Extracting application...
 
-set TEMP_BACKUP_DIR=C:\apps\eam-rfid-app-backup
-set ENV_BACKUP=%TEMP_BACKUP_DIR%\.env
+:: --- [STEP 6: Backup and Extract Application] ---
+echo [6/8] Extracting application (preserving configuration)...
 
 if exist "%APP_DIR%\.env" (
     echo Existing .env found. Backing up...
 
     if not exist "%TEMP_BACKUP_DIR%" (
+        echo Creating temporary backup directory...
         mkdir "%TEMP_BACKUP_DIR%"
     )
 
@@ -117,61 +135,63 @@ if exist "%APP_DIR%\.env" (
 )
 
 echo.
+
+:: Clean old files
 echo Cleaning application directory...
 
-for /d %%D in ("%APP_DIR%\*") do (
+for /d %%D in ("%APP_DIR%\*") do ( 
+    echo Checking directory: %%~nxD
     if /i not "%%~nxD"=="logs" (
-        rmdir /s /q "%%D"
+        echo Removing directory: %%~nxD
+        rmdir /s /q "%%D" 2>nul 
+        echo Directory %%~nxD removed.
     )
 )
 
 for %%F in ("%APP_DIR%\*") do (
+    echo Removing file: %%~nxF
     del /q "%%F" 2>nul
+    echo File %%~nxF removed.
 )
 
 echo Application directory cleaned.
 echo.
 
-echo Copying NSSM to application directory...
-copy /Y "%NSSM_SOURCE%" "%NSSM_DEST%" >nul
-
-if not exist "%NSSM_DEST%" (
-    echo [ERROR] Failed to copy NSSM.
-    pause
-    exit /b 1
-)
-
-echo NSSM copied successfully.
-echo.
-
-echo Extracting application...
-
+:: Extract new version
+echo Extracting latest application version...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-"Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%BASE_DIR%' -Force"
+"Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%APP_BASE_DIR%' -Force"
 
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to extract ZIP file.
-    pause
-    exit /b 1
+if %errorlevel% neq 0 ( 
+    echo [ERROR] Failed to extract ZIP. 
+    pause 
+    exit /b 1 
 )
 
 echo App extraction completed.
+echo.
 
+:: Restore configuration
+echo Restoring configuration...
 if exist "%ENV_BACKUP%" (
     echo Restoring existing .env...
 
     copy /Y "%ENV_BACKUP%" "%APP_DIR%\.env" >nul
+    echo .env restored successfully.
 
     del /q "%ENV_BACKUP%" >nul 2>&1
+    echo Temporary backup .env deleted.
+
     rmdir "%TEMP_BACKUP_DIR%" >nul 2>&1
-
-    echo .env restored successfully.
+    echo Temporary backup directory removed.
 )
-
 echo.
+
+:: --- [STEP 7: Register and Start Windows Service] ---
+echo [7/8] Configuring Windows Service...
 echo Installing %SERVICE_NAME%...
 
-"%NSSM_DEST%" install "%SERVICE_NAME%" "%NODE_PATH%" "%APP_PATH%"
+"%NSSM_DEST%" install "%SERVICE_NAME%" "%NODE_DEST%" "%APP_PATH%"
 
 "%NSSM_DEST%" set "%SERVICE_NAME%" AppDirectory "%APP_DIR%"
 "%NSSM_DEST%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
@@ -188,8 +208,33 @@ echo Starting service...
 "%NSSM_DEST%" start "%SERVICE_NAME%"
 
 echo.
+
+:: --- [Cleanup: Delete the source folder and open app folder] ---
+echo.
+echo [8/8] Cleaning up source folder...
+
+(
+echo @echo off
+echo timeout /t 3 /nobreak >nul
+echo rmdir /s /q "%SCRIPT_DIR%" 2>nul
+echo del "%%~f0" 2>nul
+) > "%DELETE_SCRIPT%"
+
+:: Launch the deletion script as a separate, hidden process
+start /b "" "%DELETE_SCRIPT%"
+echo "EAM RFID App Setup" source folder are no longer needed
+echo.
+
 echo ==========================================
-echo Installation complete successfully
+echo Installation complete!
 echo Service Name: %SERVICE_NAME%
+echo App Location: %APP_DIR%
 echo ==========================================
+echo.
+
+:: echo Opening application folder...
+echo Opening application folder...
+explorer "%APP_DIR%"
+
+echo All done. You can now close this window.
 pause
